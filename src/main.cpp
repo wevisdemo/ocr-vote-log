@@ -70,7 +70,6 @@ bool rectComparator(Rect r1, Rect r2){
   return r1.x < r2.x;
 }
 
-
 int main(int n_args, char ** args){
   if (n_args < 2) {
     std::cout << "Usage: main filename" << std::endl;
@@ -102,28 +101,57 @@ int main(int n_args, char ** args){
   std::vector<Mat> images =  convert(filePath);
 
   std::ofstream fileOut;
-  fileOut.open(filename + ".txt");
+  fileOut.open(filename + ".csv");
 
   tesseract::TessBaseAPI *tessOcr = new tesseract::TessBaseAPI();
-  tessOcr->Init(NULL, "tha", tesseract::OEM_LSTM_ONLY);
+  tessOcr->Init("./tessdata/", "tha", tesseract::OEM_LSTM_ONLY);
   tessOcr->SetPageSegMode(tesseract::PSM_SINGLE_LINE);
-  for (size_t ii = 0; ii < images.size(); ii++){
-    std::vector<std::vector<Rect>> lines = lineBlock(images[ii]);
+  for (size_t i = 0; i < images.size(); i++){
+    std::vector<std::vector<Rect>> lines = lineBlock(images[i]);
+    bool table = false;
+    std::vector<int> columnPositions;
+    int prevCol = 0;
     for (std::vector<Rect> rects: lines){
       //sort the list in ascending order
       std::sort(rects.begin(), rects.end(), rectComparator);
-
+      std::string lineString;
       for (Rect rect: rects){
-        Mat croped = images[ii](rect);
+        Mat croped = images[i](rect);
         tessOcr->SetImage(croped.data, croped.cols, croped.rows, 3, croped.step);
         std::string text = std::string(tessOcr->GetUTF8Text());
         //get rid of new line
         while(!text.empty() && text.back() == '\n') text.pop_back();
-
-        fileOut << text << " ";
+        
+        //detect header
+        if (text == "ลําดับที่"){
+          table = true;
+          columnPositions.push_back(0);
+          for (size_t j = 1; j < rects.size(); j++){
+            columnPositions.push_back(rects[j].tl().x);
+          }
+          //skip the header
+          break;
+        }
+        //skip the line if table did not start yet
+        if (!table){
+          break;
+        }
+        int col = 0;
+        for (size_t j = 0;
+             j < columnPositions.size() && 
+             rect.x+rect.width/2 > columnPositions[j];
+             ++j){
+          col = j;
+        }
+        if (col)
+          lineString.push_back(prevCol == col ? ' ' : ',');
+        prevCol = col;
+        lineString += text;
       }
-      //enter new line
-      fileOut << std::endl;
+      if (lineString.size()){
+        lineString.push_back('\n');
+        fileOut << lineString;
+      }
     }
   }
   if (fileOut.is_open()) fileOut.close();
