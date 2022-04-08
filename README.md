@@ -3,7 +3,7 @@
 To run
 
 ```
-make
+make [PDF_FILE=path_to_vote_log_pdf_file]
 ```
 
 Dependencies
