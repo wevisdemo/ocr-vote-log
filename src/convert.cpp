@@ -1,6 +1,6 @@
 #include "convert.hpp"
 
-std::vector<Mat> convert(std::string filePath){
+std::vector<Mat> convert(std::string filePath) {
   std::vector<Magick::Image> imageList;
   Magick::ReadOptions options;
   options.density(Magick::Geometry(190, 0));
