@@ -1,4 +1,4 @@
-PDF_FILE = ./vote-log/20190823113634A11.pdf[0]
+PDF_FILE = ./vote-log/20190823113634A11.pdf
 main_built := ./main.o
 
 main: convert

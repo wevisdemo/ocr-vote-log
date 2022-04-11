@@ -74,12 +74,25 @@ std::vector<std::vector<Rect>> lineBlock(Mat src) {
   return lineBounds;
 }
 
+Mat mergeImages(std::vector<Mat> images) {
+  Mat dest;
+  images[0].copyTo(dest);
+  dest = dest < 200;
+  Mat gray;
+  for (size_t i = 1; i < images.size(); i++) {
+    bitwise_or(images[i] < 200, dest, dest);
+  }
+
+  GaussianBlur(dest, dest, Size(15, 15), 0, 0);
+  return dest;
+}
+
 bool rectComparator(Rect r1, Rect r2) {
   //comparing in ascending order
   return r1.x < r2.x;
 }
 
-std::string textBoxeRow(Rect rect, std::string text){
+std::string textBoxeRow(Rect rect, std::string text) {
   std::string row;
   row.append(text);
   row.push_back('\t');
@@ -123,6 +136,8 @@ int main(int n_args, char** args) {
 
   std::string filename = filePath.substr(start, end - start);
   std::vector<Mat> images = convert(filePath);
+  mergeImages(images);
+  return 0;
 
   std::ofstream fileOut, textBoxes;
   fileOut.open(filename + ".csv");
@@ -206,7 +221,7 @@ int main(int n_args, char** args) {
   if (fileOut.is_open()) {
     fileOut.close();
   }
-    if (textBoxes.is_open()) {
+  if (textBoxes.is_open()) {
     textBoxes.close();
   }
 
