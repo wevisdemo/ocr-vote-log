@@ -98,7 +98,6 @@ std::vector<int> mergeImages(std::vector<Mat> images) {
   images[2].copyTo(dest);
 
   std::vector<int> column;
-  column.push_back(0);
   for (size_t i = 0; i < images[0].cols - 1; i++) {
     if ((!histB(i) && histB(i + 1)))
       column.push_back(i);
@@ -176,7 +175,7 @@ int main(int n_args, char** args) {
       std::sort(rects.begin(), rects.end(), rectComparator);
 
       //malloc column
-      row.assign(columnPositions.size(), std::string());
+      row.assign(columnPositions.size()+1, std::string());
 
       for (Rect rect : rects) {
         Mat croped = images[i](rect);
@@ -192,9 +191,8 @@ int main(int n_args, char** args) {
         int col = 0;
         for (size_t j = 0;
           j < columnPositions.size() &&
-          rect.x > columnPositions[j];
-          j++) {
-          col = j;
+          rect.x > columnPositions[j]; j++) {
+          col = j+1;
         }
 
         //feed a whitespace to non-empty string
@@ -205,11 +203,11 @@ int main(int n_args, char** args) {
       }
 
       if (row.size()) {
-        for (size_t j = 0; j < row.size(); j++) {
+        for (size_t j = 0; j < row.size()-1; j++) {
           fileOut << row[j];
 
           //put a comma
-          if (j + 1 < row.size()) {
+          if (j + 1 < row.size()-1) {
             fileOut.put(',');
           }
         }
