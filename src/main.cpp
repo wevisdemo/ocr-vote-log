@@ -74,17 +74,37 @@ std::vector<std::vector<Rect>> lineBlock(Mat src) {
   return lineBounds;
 }
 
-Mat mergeImages(std::vector<Mat> images) {
-  Mat dest;
-  images[0].copyTo(dest);
-  dest = dest < 200;
+std::vector<int> mergeImages(std::vector<Mat> images) {
   Mat gray;
-  for (size_t i = 1; i < images.size(); i++) {
-    bitwise_or(images[i] < 200, dest, dest);
+  Mat1f temp;
+  Mat1f hist;
+  Mat kernel = getStructuringElement(MORPH_RECT, Size(15, 5));
+
+  for (size_t i = 0; i < images.size(); i++) {
+    cvtColor(images[i], gray, COLOR_RGB2GRAY);
+    dilate(gray < 200, gray, kernel);
+    reduce(gray, temp, 0, REDUCE_AVG);
+    if (hist.empty()) {
+      temp.copyTo(hist);
+    } else {
+      hist = hist + temp;
+    }
   }
 
-  GaussianBlur(dest, dest, Size(15, 15), 0, 0);
-  return dest;
+  hist = hist / images.size();
+
+  Mat1b histB = hist < 5;
+  Mat dest;
+  images[2].copyTo(dest);
+
+  std::vector<int> column;
+  column.push_back(0);
+  for (size_t i = 0; i < images[0].cols - 1; i++) {
+    if ((!histB(i) && histB(i + 1)))
+      column.push_back(i);
+  }
+
+  return column;
 }
 
 bool rectComparator(Rect r1, Rect r2) {
@@ -136,8 +156,7 @@ int main(int n_args, char** args) {
 
   std::string filename = filePath.substr(start, end - start);
   std::vector<Mat> images = convert(filePath);
-  mergeImages(images);
-  return 0;
+  std::vector<int> columnPositions = mergeImages(images);
 
   std::ofstream fileOut, textBoxes;
   fileOut.open(filename + ".csv");
@@ -149,8 +168,7 @@ int main(int n_args, char** args) {
 
   for (size_t i = 0; i < images.size(); i++) {
     std::vector<std::vector<Rect>> lines = lineBlock(images[i]);
-    bool table = false;
-    std::vector<int> columnPositions;
+    bool table = true;
     std::vector<std::string> row;
     for (size_t l = 0; l < lines.size(); l++) {
       std::vector<Rect> rects = lines[l];
@@ -158,9 +176,7 @@ int main(int n_args, char** args) {
       std::sort(rects.begin(), rects.end(), rectComparator);
 
       //malloc column
-      if (table) {
-        row.assign(columnPositions.size(), std::string());
-      }
+      row.assign(columnPositions.size(), std::string());
 
       for (Rect rect : rects) {
         Mat croped = images[i](rect);
@@ -172,26 +188,12 @@ int main(int n_args, char** args) {
         textBoxes << std::to_string(l) << "\t"; //line number
         textBoxes << textBoxeRow(rect, text);
 
-        //detect header
-        if (!table && text == "ลําดับที่") {
-          table = true;
-          columnPositions.push_back(0);
-          for (size_t j = 1; j < rects.size(); j++) {
-            columnPositions.push_back(rects[j].tl().x);
-          }
-          //skip the header
-          break;
-        }
-        //skip the line if table did not start yet
-        if (!table) {
-          break;
-        }
         //determine column
         int col = 0;
         for (size_t j = 0;
           j < columnPositions.size() &&
-          rect.x + rect.width / 2 > columnPositions[j];
-          ++j) {
+          rect.x > columnPositions[j];
+          j++) {
           col = j;
         }
 
