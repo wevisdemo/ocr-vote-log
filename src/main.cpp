@@ -6,6 +6,7 @@
 #include <tesseract/baseapi.h>
 
 #include "convert.hpp"
+#include "csv.h"
 
 std::vector<std::vector<Rect>> lineBlock(Mat src) {
   std::vector<std::vector<Rect>> lineBounds;
@@ -95,14 +96,14 @@ std::vector<int> mergeImages(std::vector<Mat> images) {
 
   Mat1b histB = hist < 5;
   Mat dest;
-  images[2].copyTo(dest);
+  images[1].copyTo(dest);
 
   std::vector<int> column;
 
   for (size_t i = 0; i < images[0].cols - 1; i++) {
     if ((!histB(i) && histB(i + 1))) {
       column.push_back(i);
-      line(dest, Point(i, 0), Point(i, dest.cols), Scalar(0, 0, 255));
+      line(dest, Point(i, 0), Point(i, dest.rows), Scalar(0, 0, 255));
     }
   }
 
@@ -131,7 +132,34 @@ std::string textBoxeRow(Rect rect, std::string text) {
   return row;
 }
 
+struct People{
+  int id;
+  bool is_mp, is_senator, is_active;
+  std::string title, name, lastname, party;
+
+  People(int id, std::string title, std::string name, std::string lastname, bool is_mp, bool is_active, std::string party){
+    this->id = id;
+    this->is_mp = is_mp;
+    this->is_active = is_active;
+    this->name = name;
+    this->lastname = lastname;
+    this->party = party;
+  }
+};
+
 int main(int n_args, char** args) {
+  io::CSVReader<9, io::trim_chars<' '>, io::double_quote_escape<',', '\"'>> in("/Users/napatswift/wevis/ocr-vote-log/[WeVis] They Work for Us - Politician Data - [T] People.csv");
+  in.read_header(io::ignore_extra_column, "id","title","name","lastname","is_mp","is_senator","is_cabinet","is_active","party");
+  
+  int id, is_mp, is_senator, is_cabinet, is_active;
+  std::string title, name, lastname, party;
+
+  while(in.read_row(id, title, name, lastname, is_mp, is_senator, is_cabinet, is_active, party)){
+    struct People people(id, title, name, lastname, is_mp, is_active, party);
+    std::cout << people.id << ' ' << people.name << std::endl;
+  }
+  
+  return 0;
   if (n_args < 2) {
     std::cout << "Usage: main filename" << std::endl;
     return EXIT_FAILURE;
