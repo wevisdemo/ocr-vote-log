@@ -98,10 +98,15 @@ std::vector<int> mergeImages(std::vector<Mat> images) {
   images[2].copyTo(dest);
 
   std::vector<int> column;
+
   for (size_t i = 0; i < images[0].cols - 1; i++) {
-    if ((!histB(i) && histB(i + 1)))
+    if ((!histB(i) && histB(i + 1))) {
       column.push_back(i);
+      line(dest, Point(i, 0), Point(i, dest.cols), Scalar(0, 0, 255));
+    }
   }
+
+  imwrite("dest.jpg", dest);
 
   return column;
 }
@@ -162,7 +167,7 @@ int main(int n_args, char** args) {
   textBoxes.open(filename + "_text_boxes" + ".csv");
 
   tesseract::TessBaseAPI* tessOcr = new tesseract::TessBaseAPI();
-  tessOcr->Init("./tessdata/", "tha", tesseract::OEM_LSTM_ONLY);
+  tessOcr->Init("./tessdata/", "sarabun1", tesseract::OEM_LSTM_ONLY);
   tessOcr->SetPageSegMode(tesseract::PSM_SINGLE_LINE);
 
   for (size_t i = 0; i < images.size(); i++) {
@@ -175,7 +180,7 @@ int main(int n_args, char** args) {
       std::sort(rects.begin(), rects.end(), rectComparator);
 
       //malloc column
-      row.assign(columnPositions.size()+1, std::string());
+      row.assign(columnPositions.size() + 1, std::string());
 
       for (Rect rect : rects) {
         Mat croped = images[i](rect);
@@ -191,8 +196,8 @@ int main(int n_args, char** args) {
         int col = 0;
         for (size_t j = 0;
           j < columnPositions.size() &&
-          rect.x > columnPositions[j]; j++) {
-          col = j+1;
+          rect.x + rect.width / 2 > columnPositions[j]; j++) {
+          col = j + 1;
         }
 
         //feed a whitespace to non-empty string
@@ -203,11 +208,11 @@ int main(int n_args, char** args) {
       }
 
       if (row.size()) {
-        for (size_t j = 0; j < row.size()-1; j++) {
+        for (size_t j = 0; j < row.size() - 1; j++) {
           fileOut << row[j];
 
           //put a comma
-          if (j + 1 < row.size()-1) {
+          if (j + 1 < row.size() - 1) {
             fileOut.put(',');
           }
         }
