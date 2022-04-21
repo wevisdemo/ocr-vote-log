@@ -120,6 +120,11 @@ bool rectComparator(Rect r1, Rect r2) {
 std::string textBoxeRow(Rect rect, std::string text) {
   std::string row;
   row.append(text);
+  for (char c: text){
+    if (c != '\"' || c != ','){
+      row.push_back(c);
+    }
+  }
   row.push_back('\t');
   row.append(std::to_string(rect.tl().x));
   row.push_back('\t');
@@ -132,34 +137,7 @@ std::string textBoxeRow(Rect rect, std::string text) {
   return row;
 }
 
-struct People{
-  int id;
-  bool is_mp, is_senator, is_active;
-  std::string title, name, lastname, party;
-
-  People(int id, std::string title, std::string name, std::string lastname, bool is_mp, bool is_active, std::string party){
-    this->id = id;
-    this->is_mp = is_mp;
-    this->is_active = is_active;
-    this->name = name;
-    this->lastname = lastname;
-    this->party = party;
-  }
-};
-
 int main(int n_args, char** args) {
-  io::CSVReader<9, io::trim_chars<' '>, io::double_quote_escape<',', '\"'>> in("/Users/napatswift/wevis/ocr-vote-log/[WeVis] They Work for Us - Politician Data - [T] People.csv");
-  in.read_header(io::ignore_extra_column, "id","title","name","lastname","is_mp","is_senator","is_cabinet","is_active","party");
-  
-  int id, is_mp, is_senator, is_cabinet, is_active;
-  std::string title, name, lastname, party;
-
-  while(in.read_row(id, title, name, lastname, is_mp, is_senator, is_cabinet, is_active, party)){
-    struct People people(id, title, name, lastname, is_mp, is_active, party);
-    std::cout << people.id << ' ' << people.name << std::endl;
-  }
-  
-  return 0;
   if (n_args < 2) {
     std::cout << "Usage: main filename" << std::endl;
     return EXIT_FAILURE;
@@ -195,7 +173,7 @@ int main(int n_args, char** args) {
   textBoxes.open(filename + "_text_boxes" + ".csv");
 
   tesseract::TessBaseAPI* tessOcr = new tesseract::TessBaseAPI();
-  tessOcr->Init("./tessdata/", "sarabun1", tesseract::OEM_LSTM_ONLY);
+  tessOcr->Init("./tessdata/", "tha", tesseract::OEM_LSTM_ONLY);
   tessOcr->SetPageSegMode(tesseract::PSM_SINGLE_LINE);
 
   for (size_t i = 0; i < images.size(); i++) {
@@ -216,6 +194,7 @@ int main(int n_args, char** args) {
         std::string text = std::string(tessOcr->GetUTF8Text());
         //get rid of new line
         while (!text.empty() && text.back() == '\n') text.pop_back();
+
         textBoxes << std::to_string(i) << "\t"; //page number
         textBoxes << std::to_string(l) << "\t"; //line number
         textBoxes << textBoxeRow(rect, text);
@@ -228,6 +207,10 @@ int main(int n_args, char** args) {
           col = j + 1;
         }
 
+        if (col == 4 && rect.width < 30) {
+          text = "-";
+        }
+
         //feed a whitespace to non-empty string
         if (!row[col].empty()) {
           row[col].push_back(' ');
@@ -237,7 +220,11 @@ int main(int n_args, char** args) {
 
       if (row.size()) {
         for (size_t j = 0; j < row.size() - 1; j++) {
-          fileOut << row[j];
+
+          for (char c: row[j]){
+            if (c == '\"' || c == ',') continue;
+            fileOut.put(c);
+          }
 
           //put a comma
           if (j + 1 < row.size() - 1) {
