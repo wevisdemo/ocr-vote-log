@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from difflib import SequenceMatcher
 from re import sub
+from sys import argv
 
 TITLE = ['ร้อยตํารวจตรี', 'พันเอก', 'ร้อยตํารวจเอก',
          'พันตํารวจโท', 'พลตํารวจเอก', 'พันตํารวจเอก']
@@ -10,9 +11,8 @@ REPLACE = [('นนางสาว', 'นางสาว'), ('นษาง', '�
            ('บาย', 'นาย'), ('พสตํารวจ', 'พลตำรวจ'), ('พลตำรวจตรวี', 'พลตำรวจตรี')]
 
 
-def main():
-    df = pd.read_csv(
-        '[WeVis] They Work for Us - Politician Data - [T] PeopleVote.csv', skiprows=1)
+def main(peplevotecsv, ocrcsv, votelogcol):
+    df = pd.read_csv(peplevotecsv, skiprows=1)
 
     validate_df = df.iloc[:, 9:-1]\
         .replace(' ', np.nan)\
@@ -21,7 +21,7 @@ def main():
 
     df = df.iloc[:, :9]
 
-    df_ocr = pd.read_csv('20220209190321A17.csv', skiprows=1)
+    df_ocr = pd.read_csv(ocrcsv, skiprows=1)
     df_ocr.columns = ['no', 'id', 'fullname', 'party', 'vote']
     df_ocr = df_ocr.astype(np.str_)
 
@@ -42,7 +42,7 @@ def main():
     merged_df = df.merge(df_ocr[['fullname', 'vote']],
                          left_on='ocr', right_index=True)
 
-    votelog_val = validate_df.loc[merged_df.index]['votelog.__82']
+    votelog_val = validate_df.loc[merged_df.index][votelogcol]
     not_eq = merged_df[(votelog_val == merged_df.vote) == False]
     if (not not_eq.empty):
         print(not_eq)
@@ -135,4 +135,4 @@ def match_name(df, df_ocr, included_b):
 
 
 if __name__ == '__main__':
-    main()
+    main(*argv[1:])

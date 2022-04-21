@@ -12,3 +12,6 @@ convert.o:
 
 csv.o:
 	g++ -std=c++11 -c ./src/csv.h -o ./csv.o
+
+cross:
+	/usr/local/bin/python3 cross.py PeopleVote.csv 20220209190321A17.csv votelog.__82
