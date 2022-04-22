@@ -1,4 +1,5 @@
 
+from tkinter import E
 import pandas as pd
 import numpy as np
 from difflib import SequenceMatcher
@@ -11,13 +12,8 @@ REPLACE = [('นนางสาว', 'นางสาว'), ('นษาง', '�
            ('บาย', 'นาย'), ('พสตํารวจ', 'พลตำรวจ'), ('พลตำรวจตรวี', 'พลตำรวจตรี')]
 
 
-def main(peplevotecsv, ocrcsv, votelogcol):
+def main():
     df = pd.read_csv(peplevotecsv, skiprows=1)
-
-    validate_df = df.iloc[:, 9:-1]\
-        .replace(' ', np.nan)\
-        .fillna(5).replace('-', 0)\
-        .astype(np.int16)
 
     df = df.iloc[:, :9]
 
@@ -25,8 +21,13 @@ def main(peplevotecsv, ocrcsv, votelogcol):
     df_ocr.columns = ['no', 'id', 'fullname', 'party', 'vote']
     df_ocr = df_ocr.astype(np.str_)
 
-    df_ocr.party = df_ocr.party.apply(lambda x: fix_party(x.replace(
-        'พรรศ', 'พรรค').replace('พรวศ', 'พรรค').replace('พรรค', ''), df.party.unique()))
+    df_ocr.party = df_ocr.party\
+        .apply(lambda x: fix_party(
+            x.replace('พรรศ', 'พรรค')
+             .replace('พรวศ', 'พรรค')
+             .replace('พรรค', ''),
+            df.party.unique()))
+
     df_ocr.fullname = df_ocr.fullname.apply(
         lambda x: split_name(x, df.title.unique().tolist()+TITLE))
     df_ocr.vote = df_ocr.vote.apply(vote_encoder)
@@ -38,14 +39,14 @@ def main(peplevotecsv, ocrcsv, votelogcol):
     last_name_b = df_ocr.fullname.apply(last_name).isin(df.lastname.dropna())
 
     included_b = (name_b) | (last_name_b) | (party_b)
-    df['ocr'] = match_name(df, df_ocr, included_b)
-    merged_df = df.merge(df_ocr[['fullname', 'vote']],
-                         left_on='ocr', right_index=True)
+    match_mask = match_name(df, df_ocr, included_b)
+    vote = [df_ocr.loc[x].vote if not np.isnan(
+        x) else 0 for x in match_mask]
+    pd.Series(vote).to_csv('out.csv', index=0)
+    df['ocr_vote'] = vote
 
-    votelog_val = validate_df.loc[merged_df.index][votelogcol]
-    not_eq = merged_df[(votelog_val == merged_df.vote) == False]
-    if (not not_eq.empty):
-        print(not_eq)
+    df['ocr_vote'].replace(5, '').replace(0, '-').to_csv(ocrcsv.rsplit(
+        '.', maxsplit=1)[0]+'votelog.csv', index=0)
 
 
 def similar(a, b):
@@ -135,4 +136,10 @@ def match_name(df, df_ocr, included_b):
 
 
 if __name__ == '__main__':
-    main(*argv[1:])
+    global peplevotecsv, ocrcsv, votelogcol
+
+    if len(argv) != 4:
+        exit(0)
+
+    peplevotecsv, ocrcsv, votelogcol = argv[1:]
+    main()
