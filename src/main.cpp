@@ -6,7 +6,6 @@
 #include <tesseract/baseapi.h>
 
 #include "convert.hpp"
-#include "csv.h"
 
 std::vector<std::vector<Rect>> lineBlock(Mat src) {
   std::vector<std::vector<Rect>> lineBounds;
@@ -91,10 +90,9 @@ std::vector<int> mergeImages(std::vector<Mat> images) {
       hist = hist + temp;
     }
   }
-
   hist = hist / images.size();
 
-  Mat1b histB = hist < 5;
+  Mat1b histB = hist < 15;
   Mat dest;
   images[1].copyTo(dest);
 
@@ -203,7 +201,7 @@ int main(int n_args, char** args) {
         int col = 0;
         for (size_t j = 0;
           j < columnPositions.size() &&
-          rect.x + rect.width / 2 > columnPositions[j]; j++) {
+          rect.x > columnPositions[j]; j++) {
           col = j + 1;
         }
 

@@ -1,4 +1,4 @@
-PDF_FILE = ./vote-log/20190823113634A11.pdf[0-2]
+PDF_FILE = ./vote-log/20190823113634A11.pdf
 main_built := ./main.o
 
 all: main.o
@@ -14,4 +14,4 @@ csv.o:
 	g++ -std=c++11 -c ./src/csv.h -o ./csv.o
 
 cross:
-	/usr/local/bin/python3 cross.py PeopleVote.csv 20220209190321A17.csv votelog.__82
+	/usr/local/bin/python3 src/cross.py PeopleVote.csv $(PDF_FILE)

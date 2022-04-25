@@ -17,7 +17,7 @@ def main():
 
     df = df.iloc[:, :9]
 
-    df_ocr = pd.read_csv(ocrcsv, skiprows=1)
+    df_ocr = pd.read_csv(ocrcsv+'.csv', skiprows=1)
     df_ocr.columns = ['no', 'id', 'fullname', 'party', 'vote']
     df_ocr = df_ocr.astype(np.str_)
 
@@ -42,11 +42,8 @@ def main():
     match_mask = match_name(df, df_ocr, included_b)
     vote = [df_ocr.loc[x].vote if not np.isnan(
         x) else 0 for x in match_mask]
-    pd.Series(vote).to_csv('out.csv', index=0)
-    df['ocr_vote'] = vote
 
-    df['ocr_vote'].replace(5, '').replace(0, '-').to_csv(ocrcsv.rsplit(
-        '.', maxsplit=1)[0]+'votelog.csv', index=0)
+    pd.Series(vote, name=ocrcsv).to_csv(ocrcsv + '_votelog.csv', index=0)
 
 
 def similar(a, b):
@@ -119,12 +116,17 @@ def match_name(df, df_ocr, included_b):
 
     for i, g in df.groupby('party'):
         tmp = df_cleaned[df_cleaned['party'] == i]
+
         for j, r in tmp.iterrows():
             sim = g.apply(lambda x: similar(r.fullname.replace(
                 ' ', ''), x['name'] + x['lastname']), axis=1)
             if sim.max() > .6:
                 if j not in match_row:
                     match_row[g.iloc[sim.argmax()].name] = j
+                if i == 'ภูมิใจไทย':
+                    print(sim.max(), r.fullname, df.loc[g.iloc[sim.argmax()].name][['name', 'lastname']].values)
+
+    print(df_ocr[included_b & (df_ocr.index.isin(np.unique(match_row)) == False)].values)
 
     for i, row in df_ocr[included_b & (df_ocr.index.isin(np.unique(match_row)) == False)].iterrows():
         sim = df.apply(lambda x: similar(row.fullname.replace(
@@ -132,14 +134,16 @@ def match_name(df, df_ocr, included_b):
         if sim.max() > .7:
             match_row[sim.argmax()] = i
 
+    print(df_ocr[included_b & (df_ocr.index.isin(np.unique(match_row)) == False)].values)
     return match_row
 
 
 if __name__ == '__main__':
-    global peplevotecsv, ocrcsv, votelogcol
+    global peplevotecsv, ocrpdf, ocrcsv
 
-    if len(argv) != 4:
+    if len(argv) != 3:
         exit(0)
 
-    peplevotecsv, ocrcsv, votelogcol = argv[1:]
+    peplevotecsv, ocrpdf = argv[1:]
+    ocrcsv = ocrpdf[ocrpdf.rfind('/')+1:ocrpdf.rfind('.')]
     main()
