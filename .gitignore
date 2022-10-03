@@ -3,3 +3,6 @@
 .vscode/**
 built/**
 *.o
+**/__pycache__
+test/pdf/**
+**.pth
