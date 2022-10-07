@@ -4,7 +4,6 @@ from src.utils import noise_removal
 
 def detect_column(images):
   kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 5))
-  temp_im = None
   hist_avg = None
   for im in images:
     gray = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
@@ -13,10 +12,8 @@ def detect_column(images):
     dilated = cv2.dilate(threshed, kernel, iterations=3)
 
     if hist_avg is None:
-      # temp_im = dilated
       hist_avg = cv2.reduce(dilated, 0, cv2.REDUCE_AVG)
     else:
-      # temp_im = (temp_im+dilated)/2
       hist_avg = (hist_avg + cv2.reduce(dilated, 0, cv2.REDUCE_AVG)) / 2
 
   hist_avg = hist_avg.reshape(-1)

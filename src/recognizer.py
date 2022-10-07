@@ -19,7 +19,7 @@ def parse_text(page_list, reader, columns):
     rects = [cv2.boundingRect(c) for c in contours]
     rects.sort(key=lambda rect: rect[1])
 
-    h,w = image.shape[:2]
+    h, w = image.shape[:2]
     stack_y = []
     for ii in range(h-1):
       if (hist[ii] and not hist[ii+1]):

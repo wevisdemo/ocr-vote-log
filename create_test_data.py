@@ -40,7 +40,10 @@ def download_pdf(url, save_dir):
 if __name__ == '__main__':
   root = 'test/pdf'
   vote_id_col = (vote_df.columns[2])
-  for id, url in vote_df[[vote_id_col, 'ลิงค์ไปที่เอกสาร 1']].values:
+
+  urls = vote_df[[vote_id_col, 'ลิงค์ไปที่เอกสาร 1']].values
+  urls = []
+  for id, url in urls:
     if isinstance(id, float) or not url.endswith('.pdf'): continue
     print('inprocess...', url)
     if id in vote_count_df.columns:
@@ -51,13 +54,13 @@ if __name__ == '__main__':
   print('done')
 
   zoom_mat = fitz.Matrix(2.5, 2.5)
+  makedirs('test/imgs', exist_ok=True)
   for file in listdir(root):
     if not file.endswith('.pdf'):
       continue
     doc = fitz.open(root+'/'+file)
     fid = re.sub('\..*$', '', file)
-    makedirs(root + '/' + fid, exist_ok=True)
     for page in doc:
       pix = page.get_pixmap(matrix=zoom_mat)
-      pix.save(f"{root}/{fid}/{page.number:02}.png")
+      pix.save(f"test/imgs/{fid}-{page.number:02}.png")
 
