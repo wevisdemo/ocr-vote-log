@@ -4,5 +4,6 @@
 built/**
 *.o
 **/__pycache__
-test/pdf/**
+test/pdf/
 **.pth
+/ds
