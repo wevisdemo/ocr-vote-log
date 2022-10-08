@@ -30,7 +30,7 @@ class COCODataLoader:
             id = image['id']
             empt_image = np.zeros((image['height'], image['width']))
             self.labels[id] = empt_image
-        
+
         for ann in self.annotations:
             image_id = ann['image_id']
             bitmap = self.labels[image_id]
@@ -40,6 +40,8 @@ class COCODataLoader:
     def __getitem__(self, imid):
         pass
 
+
 if __name__ == '__main__':
-    dl = COCODataLoader('ds/project-4-at-2022-10-08-03-27-552b26e7/result.json')
-    cv2.imwrite('bitmap.jpg',dl.labels[2]*10)
+    dl = COCODataLoader(
+        'ds/project-4-at-2022-10-08-03-27-552b26e7/result.json')
+    cv2.imwrite('bitmap.jpg', dl.labels[2]*10)
