@@ -2,6 +2,10 @@ import cv2
 import tqdm
 
 
+class Recognizer:
+    pass
+
+
 def parse_text(page_list, reader, columns):
     rects_in_lines = []
     log = []

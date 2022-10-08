@@ -1,16 +1,19 @@
 from curses import COLOR_WHITE
+from typing import List
 import cv2
 import numpy as np
 
 
 class Detector:
-    def __init__(self, images: np.array) -> None:
+    def __init__(self, images: np.ndarray):
         self.images = images
 
     def detect(self):
+        rows: List = list()
         for image in self.images:
-            self.process_image(image)
-        pass
+            lines = self.process_image(image)
+            rows.append(lines)
+        return np.concatenate(rows)
 
     def process_image(self, image):
         boxes = self.detect_text(image)
@@ -18,16 +21,13 @@ class Detector:
         boxes.sort(key=lambda x: x[0])
         boxes = np.array(boxes)
 
-        boxes = boxes[filter(boxes)]
+        boxes = boxes[self.filter(boxes)]
 
-        line_nums = self.line()
+        line_nums = self.line(image, boxes)
 
-        row_spans = self.row_span_in_page(line_nums)
+        row_spans = self.row_span_in_page(boxes, line_nums)
 
-        table = self.outer_box(row_spans)
-
-        column_spans = self.column_markers(table)
-        return
+        return row_spans
 
     def detect_column(self):
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 5))
@@ -73,9 +73,9 @@ class Detector:
 
         return rects
 
-    def row_span_in_page(self, line_nums):
+    def row_span_in_page(self, boxes, line_nums):
         lnums = np.unique(line_nums)  # unique line number
-        boxes_in_lines = [self.boxes[line_nums == i] for i in lnums]
+        boxes_in_lines = [boxes[line_nums == i] for i in lnums]
         row_spans = np.array([self.outer_box(b) for b in boxes_in_lines])
         # thred = (row_spans[:, 2].mean() - row_spans.std()/2)
         # row_indexes = np.where(row_spans[:, 2] > thred)

@@ -16,7 +16,7 @@ def download(url: str) -> str:
             fp.write(response.content)
     return filename
 
-def convert_to_image(file_path: str) -> np.ndarray:
+def convert_image(file_path: str) -> np.ndarray:
     if not os.path.exists(file_path):
         return np.array([])
     doc = fitz.open(file_path)
