@@ -1,3 +1,4 @@
+from curses import COLOR_WHITE
 import cv2
 import numpy as np
 
@@ -76,9 +77,9 @@ class Detector:
         lnums = np.unique(line_nums)  # unique line number
         boxes_in_lines = [self.boxes[line_nums == i] for i in lnums]
         row_spans = np.array([self.outer_box(b) for b in boxes_in_lines])
-        thred = (row_spans[:, 2].mean() - row_spans.std()/2)
-        row_indexes = np.where(row_spans[:, 2] > thred)
-        row_spans = row_spans[row_indexes]
+        # thred = (row_spans[:, 2].mean() - row_spans.std()/2)
+        # row_indexes = np.where(row_spans[:, 2] > thred)
+        # row_spans = row_spans[row_indexes]
         return row_spans
 
     def column_markers(self, image, boxes, table):
@@ -142,3 +143,12 @@ class Detector:
         y1 = (y0 + boxes[:, 3]).max()
         y0 = y0.min()
         return (x0, y0, x1-x0, y1-y0)
+
+    def detect_column_header(self, image):
+        COL_HEADER_IM = 'lamdabti.png'
+        header = cv2.imread(COL_HEADER_IM)
+        result = cv2.matchTemplate(header, image, cv2.TM_SQDIFF_NORMED)
+        _, max_val, mnLoc, _ = cv2.minMaxLoc(result)
+        if max_val < 0.8: # threshold
+            return
+        return mnLoc
