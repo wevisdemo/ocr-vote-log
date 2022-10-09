@@ -36,11 +36,13 @@ def convert_image(file_path: str) -> np.ndarray:
 
         image_mat = np.frombuffer(pix_map.samples_mv, dtype=np.uint8).reshape((height, width, 3))
         images.append(image_mat)
-    
+
     padded_images = []
     for image_mat in images:
         # add padding
-        padded = cv2.copyMakeBorder(image_mat, 0, max_h-height, 0, max_w-width, cv2.BORDER_CONSTANT, value=255)
+        height, width = image_mat.shape[:2]
+        padded = cv2.copyMakeBorder(
+            image_mat, 0, max_h-height, 0, max_w-width, cv2.BORDER_WRAP)
         padded_images.append(padded)
 
     # convert to single array
