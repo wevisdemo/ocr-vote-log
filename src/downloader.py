@@ -21,27 +21,29 @@ def convert_image(file_path: str) -> np.ndarray:
         return np.array([])
     doc = fitz.open(file_path)
 
-    # find maximum width and height
-    max_dim: List = [0, 0]
-    for page in doc:
-        pix_map = page.get_pixmap()
-        if pix_map.height > max_dim[0]:
-            max_dim[0] = pix_map.height
-        if pix_map.width > max_dim[1]:
-            max_dim[1] = pix_map.width
 
     images: List = list()
-    for page in doc:
-        pix_map = page.get_pixmap()
-        height, width = pix_map.height, pix_map.width
-        image_mat = np.frombuffer(pix_map.samples_mv, dtype=np.uint8).reshape((height, width, 3))
-
-        # add padding
-        padded = cv2.copyMakeBorder(image_mat, 0, max_dim[0]-height, 0, max_dim[1]-width, cv2.BORDER_CONSTANT, value=255)
-
-        images.append(padded)
+    max_w, max_h = (0, 0)
     
+    zoom_mat = fitz.Matrix(3, 3)
+    for page in doc:
+        pix_map = page.get_pixmap(matrix=zoom_mat)
+        height, width = pix_map.height, pix_map.width
+        if max_h < height:
+            max_h = height
+        if max_w < width:
+            max_w = width
+
+        image_mat = np.frombuffer(pix_map.samples_mv, dtype=np.uint8).reshape((height, width, 3))
+        images.append(image_mat)
+    
+    padded_images = []
+    for image_mat in images:
+        # add padding
+        padded = cv2.copyMakeBorder(image_mat, 0, max_h-height, 0, max_w-width, cv2.BORDER_CONSTANT, value=255)
+        padded_images.append(padded)
+
     # convert to single array
-    image_mats = np.array(images)
+    image_mats = np.array(padded_images)
     return image_mats
     

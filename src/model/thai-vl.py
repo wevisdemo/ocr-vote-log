@@ -1,0 +1,1 @@
+from easyocr.model.model import Model
