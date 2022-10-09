@@ -1,5 +1,5 @@
 from curses import COLOR_WHITE
-from typing import List
+from typing import Dict, List, Tuple
 import cv2
 import numpy as np
 
@@ -9,51 +9,37 @@ class Detector:
         self.images = images
 
     def detect(self):
-        rows: List = list()
-        for image in self.images:
-            lines = self.process_image(image)
-            rows.append(lines)
-        return np.concatenate(rows)
+        detected: Dict = dict()
 
-    def process_image(self, image):
+        text_lines: List = list()
+        image_ids: List = list()
+        boundering_boxes: List = list()
+        for i, image in enumerate(self.images):
+            data = self.process_image(image)
+            text_lines.append(data['row'])
+            boundering_boxes.append(data['bbox'])
+            image_ids += ([i] * data['row'].shape[0])
+        
+        detected['line'] = np.concatenate(text_lines)
+        detected['imaeg_id'] = np.array(image_ids)
+        detected['bbox'] = np.concatenate(boundering_boxes)
+        return detected
+
+    def process_image(self, image) -> Dict[str, np.ndarray]:
         boxes = self.detect_text(image)
 
-        boxes.sort(key=lambda x: x[0])
-        boxes = np.array(boxes)
-
-        boxes = boxes[self.filter(boxes)]
+        filterer = self.filter(boxes)
+        boxes = boxes[filterer]
 
         line_nums = self.line(image, boxes)
 
         row_spans = self.row_span_in_page(boxes, line_nums)
 
-        return row_spans
+        return {
+            'row': row_spans,
+            'bbox': boxes,
+        }
 
-    def detect_column(self):
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 5))
-        hist_avg = None
-        for im in self.images:
-            gray = cv2.cvtColor(im, cv2.COLOR_RGB2GRAY)
-            th, threshed = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
-            dilated = cv2.dilate(threshed, kernel, iterations=3)
-
-            if hist_avg is None:
-                hist_avg = cv2.reduce(dilated, 0, cv2.REDUCE_AVG)
-            else:
-                hist_avg = (
-                    hist_avg + cv2.reduce(dilated, 0, cv2.REDUCE_AVG)) / 2
-
-        hist_avg = hist_avg.reshape(-1)
-
-        lined = im.copy()
-        hist_b = hist_avg < hist_avg.max() - hist_avg.std()
-        cols1 = np.argwhere(hist_b[1:] & (
-            hist_b[1:] ^ hist_b[:-1])).reshape(-1)
-        cols2 = np.argwhere(
-            hist_b[:-1] & (hist_b[1:] ^ hist_b[:-1])).reshape(-1)
-        cols = (cols1 + ((cols1 - cols2) * 0.8)).astype(int)
-
-        return cols
 
     def detect_text(self, image):
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
@@ -69,7 +55,8 @@ class Detector:
         contours, hier = cv2.findContours(
             dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         rects = [cv2.boundingRect(c) for c in contours]
-        rects.sort(key=lambda rect: rect[1])
+        rects.sort(key=lambda x: x[0])
+        rects = np.array(rects)
 
         return rects
 
@@ -107,10 +94,10 @@ class Detector:
         # create -1 matrix
         box_line_num = np.zeros(len(sorted_boxes))
         box_line_num.fill(-1)
-        # sorting by x axis
 
+        # for counting
         i = 0
-        line_image = image.copy()
+        # line_image = image.copy()
         while (box_line_num == -1).any():
             if box_line_num[i] != -1:
                 i += 1
@@ -119,23 +106,24 @@ class Detector:
             angle = np.arctan2(
                 (center - center[i]), (sorted_boxes[:, 0] - sorted_boxes[i, 0]))
 
-            is_in_line = (np.abs(angle) < 0.03)
-            is_in_line_index = np.argwhere(is_in_line).reshape(-1)
+            is_in_line = (np.abs(angle) < 0.03) # angle threshold
 
-            line_boxes = sorted_boxes[is_in_line_index]
+            # is_in_line_index = np.argwhere(is_in_line).reshape(-1)
+
+            # line_boxes = sorted_boxes[is_in_line_index]
             box_line_num[is_in_line] = i
 
             i += 1
 
         return box_line_num
 
-    def filter(self, boxes: np.array):
+    def filter(self, boxes: np.array) -> np.ndarray:
         size_filter = (boxes[:, 2]*boxes[:, 3] > 300)
         whratio_filter = (boxes[:, 2]/boxes[:, 3] > 0.5)
         post_filter = (boxes[:, 0] != 0) & (boxes[:, 1] != 0)
         return size_filter & whratio_filter & post_filter
 
-    def outer_box(self, boxes):
+    def outer_box(self, boxes) -> Tuple:
         x0 = boxes[:, 0]
         x1 = (x0 + boxes[:, 2]).max()
         x0 = x0.min()

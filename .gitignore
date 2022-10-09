@@ -8,3 +8,4 @@ test/pdf/
 **.pth
 /ds
 /test/test_output
+.ipynb_checkpoints/
