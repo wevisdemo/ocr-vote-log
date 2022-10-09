@@ -1,4 +1,5 @@
 from curses import COLOR_WHITE
+from os import listdir
 from typing import Dict, List, Tuple
 import cv2
 import numpy as np
@@ -116,6 +117,20 @@ class Detector:
             i += 1
 
         return box_line_num
+    
+    def table_header(self, image):
+        TEMPL_ROOT_DIR = 'src/patterns'
+        TEMPLS = listdir(TEMPL_ROOT_DIR)
+        header_locs = list()
+        for template_fpath in TEMPLS:
+            template_fpath = TEMPL_ROOT_DIR + '/' + template_fpath
+            template = cv2.imread(template_fpath, 0)
+            res = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+            if max_val > 0.8:
+                header_locs.append(max_loc)
+        return header_locs
+
 
     def filter(self, boxes: np.array) -> np.ndarray:
         size_filter = (boxes[:, 2]*boxes[:, 3] > 300)
