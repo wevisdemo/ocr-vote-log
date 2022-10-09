@@ -9,3 +9,4 @@ test/pdf/
 /ds
 /test/test_output
 .ipynb_checkpoints/
+*.pt
