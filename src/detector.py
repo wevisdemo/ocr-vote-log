@@ -107,7 +107,6 @@ class Detector:
 
         # for counting
         i = 0
-        # line_image = image.copy()
         while (box_line_num == -1).any():
             if box_line_num[i] != -1:
                 i += 1
@@ -118,9 +117,6 @@ class Detector:
 
             is_in_line = (np.abs(angle) < 0.03) # angle threshold
 
-            # is_in_line_index = np.argwhere(is_in_line).reshape(-1)
-
-            # line_boxes = sorted_boxes[is_in_line_index]
             box_line_num[is_in_line] = i
 
             i += 1
