@@ -26,7 +26,7 @@ def convert_image(file_path: str) -> np.ndarray:
     images: List = list()
     max_w, max_h = (0, 0)
     
-    zoom_mat = fitz.Matrix(3., 3.)
+    zoom_mat = fitz.Matrix(2.5, 2.5)
     for page in doc:
         pix_map = page.get_pixmap(matrix=zoom_mat)
         height, width = pix_map.height, pix_map.width

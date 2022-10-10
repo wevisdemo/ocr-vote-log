@@ -1,6 +1,6 @@
 from curses import COLOR_WHITE
 from os import listdir
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 import cv2
 import numpy as np
 
@@ -25,6 +25,16 @@ class Detector:
         detected['imaeg_id'] = np.array(image_ids)
         detected['bbox'] = np.concatenate(boundering_boxes)
         return detected
+
+    def find_table_start_position(self, image):
+        gray_image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        headers = self.table_header(gray_image)
+        if len(headers) >= 2:
+            header_start = np.mean(headers, axis=0)[1]
+        else:
+            header_start = headers[0][1]
+        return header_start
+
 
     def process_image(self, image) -> Dict[str, np.ndarray]:
         boxes = self.detect_text(image)
@@ -70,22 +80,21 @@ class Detector:
         # row_spans = row_spans[row_indexes]
         return row_spans
 
-    def column_markers(self, image, boxes, table):
-        empty_image = np.zeros(image.shape)
-        empty_image.fill(255)
-        x_hist = np.zeros(image.shape[1])
+    def column_markers(self, img_width: int, boxes: np.ndarray, table: np.ndarray):
+        x_hist = np.zeros(img_width)
+        tx, ty, tw, th = [0] * 4
         tx, ty, tw, th = table
         for x, y, w, h in boxes:
             if x >= tx and y >= ty and x+w <= tx+tw and y+h <= ty+th:
                 x_hist[x:x+w] += h
-            empty_image[y:y+h, x:x+w] = 0
-        bxhist = x_hist.astype(bool)
+        bxhist = x_hist > x_hist.mean()
         bxor = np.logical_xor(bxhist[1:], bxhist[:-1])
         col_marks = np.argwhere(bxor)
         if col_marks.size % 2:
             col_marks = np.append(col_marks, [table[1]+table[3]])
         col_marks = col_marks.reshape(col_marks.size//2, 2)
         columns = []
+
         for x0, x1 in col_marks:
             columns.append((x0, table[1], x1-x0, table[3]))
         columns = np.array(columns)
@@ -124,7 +133,8 @@ class Detector:
         header_locs = list()
         for template_fpath in TEMPLS:
             template_fpath = TEMPL_ROOT_DIR + '/' + template_fpath
-            template = cv2.imread(template_fpath, 0)
+            template = cv2.imread(template_fpath)
+            template = cv2.cvtColor(template, cv2.COLOR_RGB2GRAY)
             res = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
             if max_val > 0.8:
