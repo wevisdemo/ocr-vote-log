@@ -3,6 +3,25 @@ from os import listdir
 from typing import Dict, List, Optional, Tuple, Union
 import cv2
 import numpy as np
+import torch
+from transformers import DetrFeatureExtractor, DetrForObjectDetection
+
+
+class TableDetector:
+    def __init__(self):
+        self.feature_extractor = DetrFeatureExtractor.from_pretrained(
+            "napatswift/paliament-vote-table-detection")
+        self.model = DetrForObjectDetection.from_pretrained(
+            "napatswift/paliament-vote-table-detection")
+
+    def __call__(self, image):
+        inputs = self.feature_extractor(images=image, return_tensors="pt")
+        outputs = self.model(**inputs)
+        target_sizes = torch.tensor([image.size[::-1]])
+        results = self.feature_extractor.post_process(
+            outputs, target_sizes=target_sizes)[0]
+
+        return results["boxes"][results['scores'].argmax()]
 
 
 class Detector:
@@ -20,7 +39,7 @@ class Detector:
             text_lines.append(data['row'])
             boundering_boxes.append(data['bbox'])
             image_ids += ([i] * data['row'].shape[0])
-        
+
         detected['line'] = np.concatenate(text_lines)
         detected['imaeg_id'] = np.array(image_ids)
         detected['bbox'] = np.concatenate(boundering_boxes)
@@ -34,7 +53,6 @@ class Detector:
         else:
             header_start = headers[0][1]
         return header_start
-
 
     def process_image(self, image) -> Dict[str, np.ndarray]:
         boxes = self.detect_text(image)
@@ -50,7 +68,6 @@ class Detector:
             'row': row_spans,
             'bbox': boxes,
         }
-
 
     def detect_text(self, image):
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
@@ -100,7 +117,7 @@ class Detector:
         columns = np.array(columns)
         return columns
 
-    def line(self, image: np.array, sorted_boxes: np.array) -> np.array:
+    def line(self, sorted_boxes: np.array) -> np.array:
         # create -1 matrix
         box_line_num = np.zeros(len(sorted_boxes))
         box_line_num.fill(-1)
@@ -115,14 +132,14 @@ class Detector:
             angle = np.arctan2(
                 (center - center[i]), (sorted_boxes[:, 0] - sorted_boxes[i, 0]))
 
-            is_in_line = (np.abs(angle) < 0.03) # angle threshold
+            is_in_line = (np.abs(angle) < 0.03)  # angle threshold
 
             box_line_num[is_in_line] = i
 
             i += 1
 
         return box_line_num
-    
+
     def table_header(self, image):
         TEMPL_ROOT_DIR = 'src/patterns'
         TEMPLS = listdir(TEMPL_ROOT_DIR)
@@ -136,7 +153,6 @@ class Detector:
             if max_val > 0.8:
                 header_locs.append(max_loc)
         return header_locs
-
 
     def filter(self, boxes: np.array) -> np.ndarray:
         size_filter = (boxes[:, 2]*boxes[:, 3] > 300)
@@ -158,6 +174,6 @@ class Detector:
         header = cv2.imread(COL_HEADER_IM)
         result = cv2.matchTemplate(header, image, cv2.TM_SQDIFF_NORMED)
         _, max_val, mnLoc, _ = cv2.minMaxLoc(result)
-        if max_val < 0.8: # threshold
+        if max_val < 0.8:  # threshold
             return
         return mnLoc
