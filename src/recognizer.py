@@ -15,7 +15,6 @@ class Recognizer:
         self.tab_detector = TableDetector()
 
     def get_text_image_list(self, image, text_bbox) -> List[np.ndarray]:
-
         text_images: List = list()
         for x, y, w, h in text_bbox:
             ti = image[y:y+h, x:x+w]
@@ -24,6 +23,7 @@ class Recognizer:
         return text_images
 
     def get_column(self, image, bbox_list):
+        M = 10
         _table = (0, 0, image.shape[1], image.shape[0])
         columns = self.detector.column_markers(
             img_width=image.shape[1], boxes=bbox_list, table=_table)
@@ -33,7 +33,7 @@ class Recognizer:
 
         for i, col in enumerate(columns):
             x, y, w, h = col
-            is_in = (middle_point >= x) & (middle_point <= x+w)
+            is_in = (middle_point >= x) & (middle_point <= x+w+M)
             col_map[is_in] = i
 
         return col_map
@@ -50,7 +50,7 @@ class Recognizer:
 
         # find table region
         pil_img = Image.fromarray(image)
-        tab = [178., 684., 1360., 1896.]  # self.tab_detector(pil_img).tolist()
+        tab = self.tab_detector(pil_img).tolist()
         x0, y0, x1, y1 = [int(x) for x in tab]
 
         bbox: np.ndarray = self.detector.detect_text(image)
@@ -60,39 +60,53 @@ class Recognizer:
         bbox_list.sort(key=lambda x: x[0])
         filtered_bbox = np.array(bbox_list)
 
-        columns = self.get_column(image, filtered_bbox)
-        lines = self.detector.line(filtered_bbox)
-        l_order = self._line_order(filtered_bbox, lines)
+        # draw y hist
+        y_hist = np.zeros(image.shape[0])
+        for x, y, w, h in filtered_bbox:
+            y_hist[y:y+h] += w
+        y_hist = y_hist > y_hist.mean() - y_hist.std()
 
+        # find columns
+        columns = self.get_column(image, filtered_bbox)
+
+        # get image list
         gray_image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         text_images = self.get_text_image_list(
             image=gray_image, text_bbox=filtered_bbox)
+        text_image_arr = np.array(text_images)
 
-        line_num = int(lines.max())
-        col_num = int(columns.max())
-        # separate columns
+        col_num = np.unique(columns)
         text_list: List = list()
 
-        text_structure = [[list() for y in range(line_num+1)]
-                          for x in range(col_num+1)]
+        included = np.zeros(filtered_bbox[:, 1].shape, dtype=bool)
 
-        for img_txt, col_idx, line_idx in zip(text_images, columns, lines):
-            # recognize text image
+        text_lines = []
+        prev_y = 1
+        for i, y in enumerate(y_hist):
+            if y and not prev_y:
+                # find boxex that are in line
+                line_b = (filtered_bbox[:, 1] < i) & (~included)
+                if line_b.sum() == 0:
+                    continue
+                text_cols = columns[line_b]
+                text_imgs = text_image_arr[line_b]
+                line_text = self._text_line(text_imgs, text_cols)
+                text_lines.append(line_text)
+                included[line_b] = i
+            prev_y = y
+
+        return text_lines
+
+    def _text_line(self, text_images, text_cols):
+        line_text = [list() for _ in range(int(text_cols.max())+1)]
+        for img_txt, col_txt in zip(text_images, text_cols):
             recog_output = self.reader.recognize(img_txt)
             text = recog_output[0][1]
-
-            col_idx = int(col_idx)
-            line_idx = l_order[int(line_idx)]
-
-            text_structure[col_idx][line_idx].append(text)
-            text_list.append(text)
-
-        return text_structure
+            col_idx = int(col_txt)
+            line_text[col_idx].append(text)
+        return line_text
 
     def _line_order(self, bboxes: np.array, lines: np.ndarray) -> np.ndarray:
-        """
-        return order of each text lines
-        """
         one_hot = onehot(lines)
         vert_sum = one_hot.T@bboxes  # summation of each line
         box_count = one_hot.sum(axis=0)  # number of boxes each line
