@@ -80,3 +80,12 @@ def draw_boxes(boxes, image, self=None):
     x0, y0, w, h = outer_box(boxes)
     canvas = cv2.rectangle(canvas, (x0, y0), (x0+w, y0+h), (100, 100, 1000), 1)
     return canvas
+
+def onehot(arr):
+    ''' Returns a 1-hot encoding array of arr
+    With no zero groups, returns sorted labels
+    '''
+    arr_copy = np.copy(arr)
+    unique_arr = np.unique(arr_copy)
+    one_hot = (arr_copy.reshape(-1,1) == unique_arr.reshape(1,-1)).astype(np.int32)
+    return one_hot
