@@ -184,17 +184,6 @@ def find_interesting_rows(df):
    ) & (~df[name_column].isna())
 )
 
-"""TODO: delete this blog"""
-##-----------------------------------------------##
-def parse_text(_, __, ___):
-    _ = __, ___
-    import json
-    return json.load(open('rects_in_lines.json'))
-def matrix_from_url(_): return []
-def padding(_s): return []
-def detect_column(_s): return []
-##-----------------------------------------------##
-
 class VoteLog:
   def __init__(self, pdf_url: str):
     self.pdf_url = pdf_url
@@ -219,7 +208,7 @@ class VoteLog:
   def put_vote(self, people_df, people_index, ocr_index):
     vote_column = self.type2col['vote']
     people_df.loc[people_index, self.vote_id] = self.data_table.loc[ocr_index][vote_column]
-    self.data_table.loc[ocr_index, 'people_index'] = people_index
+    self.data_table.loc[ocr_index, 'people_id'] = people_index
   
   def _build_vote_column_type(self,):
     self.col2type = {}
@@ -228,7 +217,7 @@ class VoteLog:
         if row.startswith('พรรค'):
           self.col2type[idx] = 'party'
         elif row.startswith('นาย') or row.startswith('นาง'):
-          self.col2type[idx] = 'name_lastname'
+          self.col2type[idx] = 'name'
         elif 'เห็นด้วย' in row or 'ไม่เห็นด้วย' in row or 'ลงคะแนนเสียง' in row:
           self.col2type[idx] = 'vote'
         if idx in self.col2type.keys(): break
@@ -253,6 +242,14 @@ class VoteLog:
   def fix_votes(self,):
     vote_column = self.type2col['vote']
     self.data_table[vote_column] = self.data_table[vote_column].apply(self.fix_vote)
+  
+  def export(self, people_df):
+    # rename columns
+    temp = self.data_table.rename(columns=self.col2type)
+    temp = temp.join(people_df.assign(people_id=people_df.index), 'people_id', lsuffix='_ocr')
+    temp.loc[:, 'vote_id'] = self.vote_id
+    temp.loc[:, 'people_id'] = temp['people_id_ocr']
+    return temp[['vote_id', 'name_ocr', 'name', 'people_id', 'vote']]
         
 
 def get_data_frame(vote_log: VoteLog, reader, ):
@@ -340,8 +337,8 @@ def get_members_df():
   # Fetch data about parliament members from API or local json file
   parl_mems = load_data_from_api_or_local(
     'https://sheets.wevis.info/api/v1/db/public/shared-view/572c5e5c-a3d8-440f-9a70-3c4c773543ec/rows',
-    dict(fields='Id,Name,IsMp', where='(IsActive,is,true)'),
-    'parliament_members_table.json')
+    dict(fields='Id,Name,IsMp'), #where='(IsActive,is,true)'
+         'parliament_members_table.json')
   # Fetch data about parliament members and their respective parties from API or local json file
   parl_mems_parties = load_data_from_api_or_local(
     'https://sheets.wevis.info/api/v1/db/public/shared-view/707598ab-a5db-4c46-886c-f59934c9936b/rows',
@@ -358,8 +355,8 @@ def get_members_df():
     return dict(id=m['Id'], name=m['Name'], is_mp=m['IsMp'])
 
   # Convert data into pandas dataframe
-  member_party = pd.DataFrame([member_party_converter(p) for p in parl_mems_parties if p['Parties']])
-  member_party.drop_duplicates('people_id',  keep='last')
+  member_party: pd.DataFrame = pd.DataFrame([member_party_converter(p) for p in parl_mems_parties if p['Parties']])
+  member_party.drop_duplicates('people_id',  keep='last', inplace=True)
   member = pd.DataFrame([member_converter(m) for m in parl_mems])
 
   # Set idex and join the two dataframes
@@ -427,7 +424,7 @@ def correct_party_df(vote_log: VoteLog, people_df):
   # Create a new column called new_vote with -1 as initial value, rename it to vote_id and assign to people_df
   people_df = people_df.assign(new_vote=-1).rename(columns={'new_vote': vote_log.vote_id})
   # Create a new column called people_index with -1 as initial value and assign to vote_log data table
-  vote_log.data_table = vote_log.data_table.assign(people_index=-1)
+  vote_log.data_table = vote_log.data_table.assign(people_id=-1)
 
   # Apply the fix_party_name function to the party column of the vote_log data table with the party names in people_df as parameter
   vote_log.data_table.loc[:, party_column] = vote_log.data_table[party_column].apply(lambda x: fix_party_name(x, people_df.party.unique()))
@@ -454,7 +451,7 @@ def match_group_by_party(vote_log: VoteLog, people_df):
   not_matched = []
 
   party_column = vote_log.type2col['party']
-  name_column = vote_log.type2col['name_lastname']
+  name_column = vote_log.type2col['name']
 
   # group by party
   for party, g in vote_log.data_table.groupby(party_column):
@@ -491,7 +488,7 @@ def match_group_by_party(vote_log: VoteLog, people_df):
 def matching(vote_log: VoteLog, people_df: pd.DataFrame):
   # matching
   not_matched = match_group_by_party(vote_log, people_df)
-  print('👀 ชื่อที่ยังไม่พบในชีท กำลังรันอีกครั้ง', not_matched[:5], f'... และอีก {len(not_matched)-5}')
+  print('👀 ชื่อที่ยังไม่พบในชีท กำลังรันอีกครั้ง', not_matched[:3], f'... และอีก {len(not_matched)-3}')
   # not found yet
   not_found_b = people_df[(people_df[vote_log.vote_id] == -1)]
   # matching without groupby party
