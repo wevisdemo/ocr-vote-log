@@ -10,3 +10,4 @@ test/pdf/
 /test/test_output
 .ipynb_checkpoints/
 *.pt
+test/image/
