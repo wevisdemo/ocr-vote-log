@@ -342,7 +342,7 @@ def get_members_df():
   # Fetch data about parliament members and their respective parties from API or local json file
   parl_mems_parties = load_data_from_api_or_local(
     'https://sheets.wevis.info/api/v1/db/public/shared-view/707598ab-a5db-4c46-886c-f59934c9936b/rows',
-    dict(fields='People,Parties',),
+    dict(fields='People,Party',),
     'parliament_member_party_table.json')
 
   # Helper function to convert data into dataframe
@@ -355,7 +355,7 @@ def get_members_df():
     return dict(id=m['Id'], name=m['Name'], is_mp=m['IsMp'])
 
   # Convert data into pandas dataframe
-  member_party: pd.DataFrame = pd.DataFrame([member_party_converter(p) for p in parl_mems_parties if p['Parties']])
+  member_party: pd.DataFrame = pd.DataFrame([member_party_converter(p) for p in parl_mems_parties if p['Party']])
   member_party.drop_duplicates('people_id',  keep='last', inplace=True)
   member = pd.DataFrame([member_converter(m) for m in parl_mems])
 
