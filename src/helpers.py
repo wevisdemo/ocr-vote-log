@@ -347,8 +347,8 @@ def get_members_df():
 
   # Helper function to convert data into dataframe
   def member_party_converter(p: dict) -> dict:
-    return dict(party=p['Parties'] if not p['Parties'] else p['Parties']['Name'],
-                party_id=p['Parties'] if not p['Parties'] else p['Parties']['Id'],
+    return dict(party=p['Party'] if not p['Party'] else p['Party']['Name'],
+                party_id=p['Party'] if not p['Party'] else p['Party']['Id'],
                 people_id=p['People']['Id'],)
   
   def member_converter(m: dict) -> dict:
