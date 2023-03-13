@@ -342,14 +342,14 @@ def get_members_df():
   # Fetch data about parliament members and their respective parties from API or local json file
   parl_mems_parties = load_data_from_api_or_local(
     'https://sheets.wevis.info/api/v1/db/public/shared-view/707598ab-a5db-4c46-886c-f59934c9936b/rows',
-    dict(fields='People,Party',),
+    dict(fields='Person,Party',),
     'parliament_member_party_table.json')
 
   # Helper function to convert data into dataframe
   def member_party_converter(p: dict) -> dict:
     return dict(party=p['Party'] if not p['Party'] else p['Party']['Name'],
                 party_id=p['Party'] if not p['Party'] else p['Party']['Id'],
-                people_id=p['People']['Id'],)
+                people_id=p['Person']['Id'],)
   
   def member_converter(m: dict) -> dict:
     return dict(id=m['Id'], name=m['Name'], is_mp=m['IsMp'])
