@@ -281,7 +281,7 @@ def get_data_frame(vote_log: VoteLog, reader,):
   pages = padding(pages)
   # find column in the document
   columns = detect_column(pages)
-  rects_in_lines = parse_text(pages, reader, columns, vote_log.log_writer)
+  rects_in_lines = parse_text(pages, reader, columns, vote_log)
   # concatenate string in table cell
   df = pd.DataFrame([[' '.join(r) for r in line ] for line in rects_in_lines])
   df.to_csv(f'{vote_log.vote_id}.csv', index=False)
