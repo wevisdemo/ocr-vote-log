@@ -191,6 +191,16 @@ def find_interesting_rows(df):
    ) & (~df[name_column].isna())
 )
 
+class NpEncoder(json.JSONEncoder):
+  def default(self, obj):
+    if isinstance(obj, np.integer):
+      return int(obj)
+    if isinstance(obj, np.floating):
+      return float(obj)
+    if isinstance(obj, np.ndarray):
+      return obj.tolist()
+    return super(NpEncoder, self).default(obj)
+
 class VoteLog:
   def __init__(self, pdf_url: str, logger=None):
     self.pdf_url = pdf_url
@@ -208,7 +218,7 @@ class VoteLog:
       radis: Redis = self.logger
     
     if not isinstance(data, str):
-      data = json.dumps(data)
+      data = json.dumps(data, cls=NpEncoder)
 
     radis.hsetnx('votes', self.pdf_url, self.vote_id)
     if ftype == 'parse_text':
