@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 import cv2
 from pdf2image import convert_from_bytes
 import pandas as pd
@@ -11,6 +11,7 @@ from functools import partial
 import requests
 import os
 import json
+from redis import Redis
 
 def matrix_from_url(url: str) -> List[np.array]:
   """
@@ -72,11 +73,12 @@ def draw_img_boxes(image, boxes):
     local_img[y:y+h, x:x+w] = 255
   return local_img
 
-def parse_text(page_list, reader, columns):
+def parse_text(page_list, reader, columns, log_writer=None):
   rects_in_lines = []
   log = []
   for i, image in tqdm(enumerate(page_list)):
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    _log_data = dict(list=list(), image=gray.tolist(), page_name=i)
     
     blured = cv2.GaussianBlur(gray, (9,9), 0)
     th, threshed = cv2.threshold(blured, 200, 255, cv2.THRESH_BINARY_INV|cv2.THRESH_OTSU)
@@ -105,7 +107,7 @@ def parse_text(page_list, reader, columns):
 
     hist = cv2.reduce(b_image, 1, cv2.REDUCE_AVG).reshape(-1)
 
-    h,w = image.shape[:2]
+    h,w,_ = image.shape
     stack_y = []
     for ii in range(h-1):
       if (hist[ii] and not hist[ii+1]):
@@ -113,13 +115,12 @@ def parse_text(page_list, reader, columns):
       elif (not hist[ii] and hist[ii+1]):
         stack_y.append(ii)
 
-    draw_img = image.copy()
-    for x, y, w, h in rects:
-      draw_img = cv2.rectangle(draw_img, (x,y),(x+w,y+h), 255, 1)
+    # draw_img = image.copy()
+    # for x, y, w, h in rects:
+    #   draw_img = cv2.rectangle(draw_img, (x,y),(x+w,y+h), 255, 1)
     # cv2.imwrite('rect-img-{:02}.png'.format(i), draw_img)
 
-    draw_img = image.copy()
-    line_num = len(stack_y)//2
+    # draw_img = image.copy()
     while(stack_y):
       rects_in_col = [[] for _ in range(len(columns)+1)]
       line_y2 = stack_y.pop(0)
@@ -143,11 +144,17 @@ def parse_text(page_list, reader, columns):
         col = (x + (w/2) > columns).sum()
         # draw_img = cv2.rectangle(draw_img, (x,y),(x+w,y+h), 255, 1)
         text = reader.recognize(image[y:y+h, x:x+w])[0][1]
+        _log_data['list'].append(dict(text=text,
+                                      bbox=(x, y, w, h),
+                                      col=col,
+                                      line=len(rects_in_lines),))
         if col >= len(rects_in_col):
           log.append((col, text))
           continue
         rects_in_col[col].append(text)
       rects_in_lines.append(rects_in_col)
+    if log_writer:
+      log_writer.write_log('parse_text', _log_data)
     # cv2.imwrite('ocr-img-{:02}.png'.format(i),draw_img)
   if log: print(log)
   return rects_in_lines
@@ -185,12 +192,28 @@ def find_interesting_rows(df):
 )
 
 class VoteLog:
-  def __init__(self, pdf_url: str):
+  def __init__(self, pdf_url: str, logger=None):
     self.pdf_url = pdf_url
     self.vote_id = self._get_vote_log_id(pdf_url)
     self.data_table = None
     self.col2type = {}
     self.type2col = {}
+    self.logger = logger
+
+  def write_log(self, ftype: str, data: Union[list, dict]):
+    assert isinstance(ftype, str)
+    if self.logger is None:
+      raise ValueError('Logger not defined')
+    else:
+      radis: Redis = self.logger
+
+    radis.hsetnx('votes', self.pdf_url, self.vote_id)
+    if ftype == 'parse_text':
+      radis.lpush(self.vote_id, data)
+    elif ftype == 'result':
+      radis.hset('result_table', self.vote_id, data)
+    else:
+      raise ValueError('argrument `ftype` not recognized')
 
   def summary(self,):
     vote_column = self.type2col['vote']
@@ -252,13 +275,13 @@ class VoteLog:
     return temp[['vote_id', 'name_ocr', 'name', 'people_id', 'vote']]
         
 
-def get_data_frame(vote_log: VoteLog, reader, ):
+def get_data_frame(vote_log: VoteLog, reader,):
   pages = matrix_from_url(vote_log.pdf_url) # download pdf and convert to numpy array
   # pad images to have the same dimensions
   pages = padding(pages)
   # find column in the document
   columns = detect_column(pages)
-  rects_in_lines = parse_text(pages, reader, columns)
+  rects_in_lines = parse_text(pages, reader, columns, vote_log.log_writer)
   # concatenate string in table cell
   df = pd.DataFrame([[' '.join(r) for r in line ] for line in rects_in_lines])
   df.to_csv(f'{vote_log.vote_id}.csv', index=False)
