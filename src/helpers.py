@@ -206,6 +206,9 @@ class VoteLog:
       raise ValueError('Logger not defined')
     else:
       radis: Redis = self.logger
+    
+    if not isinstance(data, str):
+      data = json.dumps(data)
 
     radis.hsetnx('votes', self.pdf_url, self.vote_id)
     if ftype == 'parse_text':
