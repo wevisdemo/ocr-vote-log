@@ -78,7 +78,7 @@ def parse_text(page_list, reader, columns, log_writer=None):
   log = []
   for i, image in tqdm(enumerate(page_list)):
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    _log_data = dict(list=list(), image=gray.tolist(), page_name=i)
+    _log_data = dict(list=list(), page_name=i)
     
     blured = cv2.GaussianBlur(gray, (9,9), 0)
     th, threshed = cv2.threshold(blured, 200, 255, cv2.THRESH_BINARY_INV|cv2.THRESH_OTSU)
@@ -218,7 +218,7 @@ class VoteLog:
       radis: Redis = self.logger
     
     if not isinstance(data, str):
-      data = json.dumps(data, cls=NpEncoder)
+      data = json.dumps(data, cls=NpEncoder, ensure_ascii=False)
 
     radis.hsetnx('votes', self.pdf_url, self.vote_id)
     if ftype == 'parse_text':
