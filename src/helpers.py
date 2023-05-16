@@ -167,8 +167,10 @@ def parse_text(page_list, reader, columns, log_writer=None):
 
 
 def padding(images: np.array):
-    """A function that takes an array of images and
-    returns a new array with all the images padded to have the same shape."""
+    """
+    A function that takes an array of images and
+    returns a new array with all the images padded to have the same shape.
+    """
 
     shapes: List = []  # A list to hold the shapes of all the images in the input array
     for image in images:
@@ -196,8 +198,7 @@ def find_interesting_rows(df):
         df[0].apply(lambda x: re.sub('[\^:\.\s]', '', str(x)).isdigit())
         | df[1].apply(lambda x: re.sub('[\^:\.\s]', '', str(x)).isdigit())
         | df[party_column].apply(lambda x: str(x).startswith('พรรค'))
-    ) & (~df[name_column].isna())
-    )
+    ) & (~df[name_column].isna()))
 
 
 class NpEncoder(json.JSONEncoder):
@@ -261,7 +262,7 @@ class VoteLog:
         self.col2type = {}
         for idx, column in self.data_table.astype(str).iteritems():
             for row in column:
-                if row.startswith('พรรค'):
+                if row.startswith('พรรค') or 'สมาชิกวุฒิสภา' in row:
                     self.col2type[idx] = 'party'
                 elif row.startswith('นาย') or row.startswith('นาง'):
                     self.col2type[idx] = 'name'
@@ -306,31 +307,54 @@ class VoteLog:
 
 
 def get_data_frame(vote_log: VoteLog, reader,):
-    # download pdf and convert to numpy array
+    # Download PDF and convert to numpy array
     pages = matrix_from_url(vote_log.pdf_url)
-    # pad images to have the same dimensions
+
+    # Pad images to have the same dimensions
     pages = padding(pages)
-    # find column in the document
+
+    # Find column in the document
     columns = detect_column(pages)
+
+    # Parse text
     rects_in_lines = parse_text(pages, reader, columns, vote_log)
-    # concatenate string in table cell
+
+    # Concatenate string in table cell
     df = pd.DataFrame([[' '.join(r) for r in line] for line in rects_in_lines])
+
+    # Save DataFrame to CSV file, for debugging
     df.to_csv(f'{vote_log.vote_id}.csv', index=False)
+
+    # Find interesting rows
     interested_row_b = find_interesting_rows(df)
+
+    # Create a Boolean mask that indicates whether any row contains the word "หมายเหตุ".
     is_note_b = df[0].apply(lambda x: isinstance(x, str) and 'หมายเหตุ' in x)
+
+    # Check if any of the rows contain the word "หมายเหตุ".
     has_note = is_note_b.any()
+
     print('ในบันทึกการออกคะแนนนี้', 'มี' if has_note else 'ไม่มี', 'หมายเหตุ')
+
+    # If any of the rows contain the word "หมายเหตุ",
+    # set the corresponding values in the `interested_row_b` mask to False.
     if has_note:
         interested_row_b.loc[df[is_note_b].index[0]:] = False
+
     print(
         f'มีรายชื่อทั้งหมด {interested_row_b.sum()} รายชื่อ (ไม่นับหลังหมายเหตุ)')
+
+    # Filter DataFrame
     df = df[interested_row_b]
+
     vote_log.set_data_table(df)
 
 
 def get_data(url, params={}):
-    """A function that receives a url and optional parameters,
-    and returns a list of data obtained from that url."""
+    """
+    A function that receives a url and optional parameters,
+    and returns a list of data obtained from that url.
+    """
 
     page_size = 100  # The number of data items to retrieve in each request
     page_idx = 0   # The index of the current page
@@ -392,7 +416,7 @@ def get_members_df():
     # Fetch data about parliament members from API or local json file
     parl_mems = load_data_from_api_or_local(
         'https://sheets.wevis.info/api/v1/db/public/shared-view/572c5e5c-a3d8-440f-9a70-3c4c773543ec/rows',
-        dict(fields='Id,Name,IsMp'),  # where='(IsActive,is,true)'
+        dict(fields='Id,Name,IsMp,IsSenator'),  # where='(IsActive,is,true)'
         'parliament_members_table.json')
     # Fetch data about parliament members and their respective parties from API or local json file
     parl_mems_parties = load_data_from_api_or_local(
@@ -407,7 +431,7 @@ def get_members_df():
                     people_id=p['Person']['Id'],)
 
     def member_converter(m: dict) -> dict:
-        return dict(id=m['Id'], name=m['Name'], is_mp=m['IsMp'])
+        return dict(id=m['Id'], name=m['Name'], is_mp=m['IsMp'], is_senator=m['IsSenator'],)
 
     # Convert data into pandas dataframe
     member_party: pd.DataFrame = pd.DataFrame(
@@ -511,19 +535,24 @@ def re_match(vote_log: VoteLog, not_matched, filtered, people_df):
 
 def match_group_by_party(vote_log: VoteLog, people_df):
     title_re = r'(นาย|นาง(สาว)?|ศาสตราจารย์|(พล|พัน)?(ตำรวจ|นาวาอากาศ)?(เอก|โท|ตรี)?)'
-    thai_char_re = r'[^\u0E00-\u0E7F]+'
+    non_thai_char_re = r'[^\u0E00-\u0E7F]+'
     not_matched = []
 
     party_column = vote_log.type2col['party']
     name_column = vote_log.type2col['name']
 
+    def clean_name_string_fn(x):
+        return re.sub(title_re, '', re.sub(non_thai_char_re, '', x))
+    
     # group by party
     for party, g in vote_log.data_table.groupby(party_column):
-        def clean_name_string_fn(x): return re.sub(
-            title_re, '', re.sub(thai_char_re, '', x))
         ocr_names = g[name_column].apply(clean_name_string_fn)
 
-        filtered_people_df = people_df[(people_df.party == party)]
+        # If party is Senator, filter people_df by is_senator column
+        if party == 'สมาชิกวุฒิสภา':
+            filtered_people_df = people_df[people_df.is_senator]
+        else:
+            filtered_people_df = people_df[(people_df.party == party)]
 
         for j, ocr_name in ocr_names.items():
             found = False
@@ -536,7 +565,7 @@ def match_group_by_party(vote_log: VoteLog, people_df):
                         continue
                 elif member_has_vote.all():
                     continue
-                name = re.sub(thai_char_re, '', row['name'])
+                name = re.sub(non_thai_char_re, '', row['name'])
                 if name == ocr_name or name in ocr_name:
                     found = True
                     vote_log.put_vote(people_df, i, j)
