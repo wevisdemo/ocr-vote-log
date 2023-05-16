@@ -11,3 +11,4 @@ test/pdf/
 .ipynb_checkpoints/
 *.pt
 test/image/
+mmocr
