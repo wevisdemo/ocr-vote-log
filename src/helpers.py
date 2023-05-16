@@ -1,6 +1,6 @@
 from typing import List, Union
 import cv2
-from pdf2image import convert_from_bytes
+from pdf2image import convert_from_bytes, convert_from_path
 import pandas as pd
 import numpy as np
 import re
@@ -13,22 +13,38 @@ import os
 import json
 from redis import Redis
 
-
-def matrix_from_url(url: str) -> List[np.array]:
+def get_image_from_path(path: str) -> List[np.array]:
     """
-    matrix_from_url function fetches data from a URL containing a PDF file and converts it into a list of numpy arrays.
-    It first fetches the data from the URL using the requests module, and then converts the data into a list of numpy arrays using the convert_from_bytes function from the PyPDF2 module.
+    Gets an image from a path.
 
     Args:
-      url: A string representing the URL of a PDF file.
+        path: The path to the image.
 
     Returns:
-      A list of numpy arrays containing the converted PDF data.
+        A list of numpy arrays, one for each page in the image.
+
+    Raises:
+        FileNotFoundError: If the path does not exist.
+        TypeError: If the path is not a string.
     """
-    # Fetch data from URL
-    response = req_get(url)
-    # Convert fetched data into a list of numpy arrays
-    converted = convert_from_bytes(response.content)
+
+    # Check if the path is a string.
+    if not isinstance(path, str):
+        raise TypeError("path must be a string")
+
+    # If path is a local file
+    if os.path.isfile(path):
+        # Convert local file into a list of numpy arrays
+        converted = convert_from_path(path)
+
+    # If path is a URL
+    elif re.match(r'^https?://', path) or re.match(r'^www\.', path):
+        # Fetch data from URL
+        response = req_get(path)
+
+        # Convert fetched data into a list of numpy arrays
+        converted = convert_from_bytes(response.content)
+
     pages = [np.array(im) for im in converted]
     return pages
 
@@ -80,7 +96,7 @@ def draw_img_boxes(image, boxes):
 def parse_text(page_list, reader, columns, log_writer=None):
     rects_in_lines = []
     log = []
-    for i, image in tqdm(enumerate(page_list)):
+    for i, image in enumerate(tqdm(page_list)):
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         _log_data = dict(list=list(), page_name=i)
 
@@ -308,7 +324,7 @@ class VoteLog:
 
 def get_data_frame(vote_log: VoteLog, reader,):
     # Download PDF and convert to numpy array
-    pages = matrix_from_url(vote_log.pdf_url)
+    pages = get_image_from_path(vote_log.pdf_url)
 
     # Pad images to have the same dimensions
     pages = padding(pages)
