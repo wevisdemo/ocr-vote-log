@@ -574,7 +574,7 @@ def match_group_by_party(vote_log: VoteLog, people_df):
             found = False
             index_l = []
             sim_l = []
-            for i, row in filtered_people_df.iterrows():
+            for i, row in filtered_people_df.items():
                 member_has_vote = people_df.loc[i, vote_log.vote_id] != -1
                 if isinstance(member_has_vote, bool):
                     if member_has_vote:
