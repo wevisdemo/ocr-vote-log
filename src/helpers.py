@@ -286,7 +286,20 @@ class VoteLog:
                     self.col2type[idx] = 'vote'
                 if idx in self.col2type.keys():
                     break
-        self.type2col = {t: c for c, t in self.col2type.items()}
+        # if type duplicated, merge them
+        self.type2col = {}
+        for c, t in self.col2type.items():
+            if t in self.type2col.keys():
+                self.type2col[t] = self.type2col[t] + [c]
+            else:
+                self.type2col[t] = [c]
+        
+        for t, c in self.type2col.items():
+            if len(c) > 1:
+                self.data_table[c[0]] = self.data_table[c].astype(str).apply(
+                    lambda x: ''.join(x), axis=1)
+            
+            self.type2col[t] = c[0]
 
     def _fix_vote_replacer(self, text: str):
         return text.replace('.ท็น', 'เห็น').replace('เท็น', 'เห็น').replace('เห็นด้าย', 'เห็นด้วย')
