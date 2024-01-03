@@ -298,6 +298,9 @@ class VoteLog:
             if len(c) > 1:
                 self.data_table[c[0]] = self.data_table[c].apply(
                     lambda colvals: ''.join([cv for cv in colvals if isinstance(cv, str)]), axis=1)
+                self.col2type[c[0]] = t
+                for ci in c[1:]:
+                    del self.col2type[ci]
 
             self.type2col[t] = c[0]
 
