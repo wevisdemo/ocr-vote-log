@@ -296,9 +296,9 @@ class VoteLog:
         
         for t, c in self.type2col.items():
             if len(c) > 1:
-                self.data_table[c[0]] = self.data_table[c].astype(str).apply(
-                    lambda x: ''.join(x), axis=1)
-            
+                self.data_table[c[0]] = self.data_table[c].apply(
+                    lambda colvals: ''.join([cv for cv in colvals if isinstance(cv, str)]), axis=1)
+
             self.type2col[t] = c[0]
 
     def _fix_vote_replacer(self, text: str):
