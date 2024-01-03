@@ -276,7 +276,7 @@ class VoteLog:
 
     def _build_vote_column_type(self,):
         self.col2type = {}
-        for idx, column in self.data_table.astype(str).iteritems():
+        for idx, column in self.data_table.astype(str).items():
             for row in column:
                 if row.startswith('พรรค') or 'สมาชิกวุฒิสภา' in row:
                     self.col2type[idx] = 'party'
@@ -574,7 +574,7 @@ def match_group_by_party(vote_log: VoteLog, people_df):
             found = False
             index_l = []
             sim_l = []
-            for i, row in filtered_people_df.items():
+            for i, row in filtered_people_df.iterrows():
                 member_has_vote = people_df.loc[i, vote_log.vote_id] != -1
                 if isinstance(member_has_vote, bool):
                     if member_has_vote:
