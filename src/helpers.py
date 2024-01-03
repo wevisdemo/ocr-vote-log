@@ -282,7 +282,7 @@ class VoteLog:
                     self.col2type[idx] = 'party'
                 elif row.startswith('นาย') or row.startswith('นาง'):
                     self.col2type[idx] = 'name'
-                elif 'เห็นด้วย' in row or 'ไม่เห็นด้วย' in row or 'ลงคะแนนเสียง' in row:
+                elif 'เห็นด้วย' in row or 'ไม่เห็นด้วย' in row or 'ลงคะแนนเสียง' in row or 'ไม่เท็นด้วย' in row or 'เท็นด้วย' in row:
                     self.col2type[idx] = 'vote'
                 if idx in self.col2type.keys():
                     break
