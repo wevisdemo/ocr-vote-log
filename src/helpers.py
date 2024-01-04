@@ -40,7 +40,7 @@ def get_image_from_path(path: str) -> List[np.array]:
     # If path is a URL
     elif re.match(r'^https?://', path) or re.match(r'^www\.', path):
         # Fetch data from URL
-        response = req_get(path)
+        response = req_get(path, verify=False)
 
         # Convert fetched data into a list of numpy arrays
         converted = convert_from_bytes(response.content)
